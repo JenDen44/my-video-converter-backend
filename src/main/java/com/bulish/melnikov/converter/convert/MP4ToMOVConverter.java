@@ -1,62 +1,59 @@
 package com.bulish.melnikov.converter.convert;
 
+import com.bulish.melnikov.converter.service.FileService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
+import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
 @Component
+@Slf4j
 public class MP4ToMOVConverter extends Mp4Converter {
-    public MP4ToMOVConverter() {
+
+    private final FileService fileService;
+    public MP4ToMOVConverter(FileService fileService) {
         super("mov");
+        this.fileService = fileService;
     }
 
     @Override
     public byte[] convert(File file) {
 
         try {
-            File outputFile = File.createTempFile("output", ".mov");
-            outputFile.deleteOnExit();
+            Path newOutFileName = fileService.getNewPathForFile(
+                    fileService.getFileNameWithoutExtension(file.getName()) + ".mov");
 
             String[] command = {
                     "ffmpeg",
                     "-i", file.getAbsolutePath(),
                     "-f", "mov",
-                    outputFile.getAbsolutePath()
+                    newOutFileName.toString()
             };
 
-                ProcessBuilder processBuilder = new ProcessBuilder(command);
-                processBuilder.redirectErrorStream(true); // Combine error stream with output stream
-                Process process = processBuilder.start();
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
+            processBuilder.redirectErrorStream(true);
+            Process process = processBuilder.start();
 
-                boolean finished = process.waitFor(2, TimeUnit.MINUTES);
+            boolean finished = process.waitFor(2, TimeUnit.MINUTES);
 
-                if (!finished) {
-                    process.destroy();
-                    throw new RuntimeException("FFmpeg process timed out");
+            if (!finished) {
+                process.destroy();
+                log.error("FFmpeg process timed out");
                 }
 
-                int exitCode = process.waitFor();
-                if (exitCode != 0) {
-                    throw new RuntimeException("converting file was finished with code " + exitCode);
-                }
+            try (FileInputStream fis = new FileInputStream(newOutFileName.toString())) {
+                byte [] convertedVideo = fis.readAllBytes();
 
-            // Read the converted MOV file into a byte array
-            try (FileInputStream fis = new FileInputStream(outputFile);
-                 ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+                fileService.deleteFile(newOutFileName.toString());
 
-                byte[] buffer = new byte[1024];
-                int bytesRead;
-                while ((bytesRead = fis.read(buffer)) != -1) {
-                    baos.write(buffer, 0, bytesRead);
-                }
-
-                return baos.toByteArray();
+                return convertedVideo;
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error(e.getMessage());
         }
-        
+
         return null;
     }
 }
