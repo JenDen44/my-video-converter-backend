@@ -2,6 +2,7 @@ package com.bulish.melnikov.converter.convert;
 
 import com.bulish.melnikov.converter.service.FileService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
@@ -12,11 +13,12 @@ import java.util.concurrent.TimeUnit;
 
 @Component
 @Slf4j
-public class MP4ToMOVConverter extends Mp4Converter {
+@Profile("dev")
+public class MP4ToMOVConverterDev extends Mp4Converter {
 
     private final FileService fileService;
 
-    public MP4ToMOVConverter(FileService fileService) {
+    public MP4ToMOVConverterDev(FileService fileService) {
         super("mov");
         this.fileService = fileService;
     }
@@ -41,13 +43,24 @@ public class MP4ToMOVConverter extends Mp4Converter {
                     tempOutputFile.toString()
             };
 
-
             ProcessBuilder processBuilder = new ProcessBuilder(command);
             processBuilder.redirectErrorStream(true);
             log.info("Convert process has started with command: {}", String.join(" ", command));
 
             log.info("convert process has started");
             Process process = processBuilder.start();
+
+            new Thread(() -> {
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        log.info("FFmpeg: {}", line);
+                    }
+                } catch (IOException e) {
+                    log.error("Error reading FFmpeg output", e);
+                }
+            }).start();
+
             boolean finished = process.waitFor(2, TimeUnit.MINUTES);
 
             if (!finished) {
@@ -75,4 +88,3 @@ public class MP4ToMOVConverter extends Mp4Converter {
         return null;
     }
 }
-
