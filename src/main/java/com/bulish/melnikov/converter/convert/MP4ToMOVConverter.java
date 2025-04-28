@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
@@ -30,8 +31,9 @@ public class MP4ToMOVConverter extends Mp4Converter {
             tempInputFile = File.createTempFile("input-" + UUID.randomUUID(), ".mp4");
             tempOutputFile = Paths.get("temp/files/" + UUID.randomUUID() + ".mov");
 
-            try (FileOutputStream fos = new FileOutputStream(tempInputFile)) {
-                fos.write(file);
+            try(BufferedOutputStream buff = new BufferedOutputStream(Files.newOutputStream(tempInputFile.toPath()))) {
+                buff.write(file);
+                buff.flush();
             }
 
             String[] command = {
@@ -40,7 +42,6 @@ public class MP4ToMOVConverter extends Mp4Converter {
                     "-f", "mov",
                     tempOutputFile.toString()
             };
-
 
             ProcessBuilder processBuilder = new ProcessBuilder(command);
             processBuilder.redirectErrorStream(true);

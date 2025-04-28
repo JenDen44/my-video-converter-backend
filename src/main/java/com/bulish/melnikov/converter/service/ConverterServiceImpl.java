@@ -34,7 +34,6 @@ public class ConverterServiceImpl implements ConverterService {
 
         if (extensions.stream().noneMatch(e -> e.getFormatFrom().equals(formatFrom)
                 && e.getFormatsTo().contains(formatTo))) {
-
             throw new IncorrectFormatExtensionException("Check available formats, format from "
                     + formatFrom + " to  " +  formatTo + " is not supported");
         }
