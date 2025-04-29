@@ -1,47 +1,67 @@
 package com.bulish.melnikov.converter.service;
 
 import com.bulish.melnikov.converter.convert.Converter;
+import com.bulish.melnikov.converter.exception.IncorrectFormatExtensionException;
 import com.bulish.melnikov.converter.fabric.ConverterFactory;
 import com.bulish.melnikov.converter.fabric.Fabric;
-import com.bulish.melnikov.converter.model.ConvertRequest;
-import com.bulish.melnikov.converter.model.State;
-import lombok.AllArgsConstructor;
+import com.bulish.melnikov.converter.model.*;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
-import java.io.IOException;
+import java.util.List;
 
 @Service
 @Slf4j
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class ConverterServiceImpl implements ConverterService {
 
-    private final FileService fileService;
     private final ConverterFactory converterFactory;
-    private final ConvertRequestService convertRequestService;
+    private final ExtensionService extensionService;
+    private final StreamBridge streamBridge;
+
+    @Value("${convert.response.destination}")
+    private String destination;
+
     @Override
-    public void convert(ConvertRequest request) {
-        request.setState(State.CONVERTING);
-        convertRequestService.update(request);
+    public void convert(ConvertRequestMsgDTO request) {
+
+        List<ExtensionDto> extensions = extensionService.getAllowedExtensions();
+        String formatTo = request.getFormatTo();
+        String formatFrom = request.getFormatFrom();
+
+        if (extensions.stream().noneMatch(e -> e.getFormatFrom().equals(formatFrom)
+                && e.getFormatsTo().contains(formatTo))) {
+            throw new IncorrectFormatExtensionException("Check available formats, format from "
+                    + formatFrom + " to  " +  formatTo + " is not supported");
+        }
 
         Fabric fabric = converterFactory.getFactory(request.getFormatFrom());
         Converter converter = fabric.getConverter(request.getFormatTo());
 
-        File fileToConvert = fileService.getFile(request.getFilePath());
-        String convertedFilePath = null;
+        byte[] convertedFile;
 
         try {
-            byte[] convertedFile = converter.convert(fileToConvert);
-            convertedFilePath = fileService.saveFile(convertedFile, request.getFormatTo(), fileToConvert.getName());
-        } catch (IOException e) {
-            request.setState(State.IN_ERROR);
-            convertRequestService.save(request);
+            //TODO send even that status for request status is converting
+            convertedFile = converter.convert(request.getFile());
+
+         if (convertedFile.length != 0) {
+             //TODO sent event file is converted
+             streamBridge.send(destination, ConvertResponseMsgDTO.builder()
+                     .file(convertedFile)
+                     .formatFrom(formatFrom)
+                     .formatTo(formatTo)
+                     .id(request.getId())
+                     .build());
+         } else {
+             throw new RuntimeException("converted file array is empty");
+         }
+
+        } catch (Exception e) {
+           //TODO send even status Request is in error
             throw new RuntimeException("Error converting file", e);
         }
-
-        request.setConvertedFilePath(convertedFilePath);
-        request.setState(State.CONVERTED);
-        convertRequestService.update(request);
     }
 }

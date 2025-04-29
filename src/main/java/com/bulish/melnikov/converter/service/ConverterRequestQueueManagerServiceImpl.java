@@ -1,6 +1,6 @@
 package com.bulish.melnikov.converter.service;
 
-import com.bulish.melnikov.converter.model.ConvertRequest;
+import com.bulish.melnikov.converter.model.ConvertRequestMsgDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -10,7 +10,7 @@ import java.util.concurrent.*;
 @Slf4j
 public class ConverterRequestQueueManagerServiceImpl implements ConverterRequestQueueManagerService {
 
-    private final BlockingQueue<ConvertRequest> taskQueue = new LinkedBlockingQueue<>();
+    private final BlockingQueue<ConvertRequestMsgDTO> taskQueue = new LinkedBlockingQueue<>();
 
     private final ConverterService converterService;
 
@@ -23,14 +23,14 @@ public class ConverterRequestQueueManagerServiceImpl implements ConverterRequest
         new Thread(this::processQueue).start();
     }
 
-    public void addRequestToQueue(ConvertRequest convertRequest) {
+    public void addRequestToQueue(ConvertRequestMsgDTO convertRequest) {
         taskQueue.add(convertRequest);
     }
 
     private void processQueue() {
         while (running) {
             try {
-                ConvertRequest request = taskQueue.take();
+                ConvertRequestMsgDTO request = taskQueue.take();
                 executorService.submit(() -> {
                     try {
                         converterService.convert(request);
