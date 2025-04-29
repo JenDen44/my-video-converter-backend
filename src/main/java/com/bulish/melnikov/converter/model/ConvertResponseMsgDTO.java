@@ -1,19 +1,23 @@
 package com.bulish.melnikov.converter.model;
 
+import com.bulish.melnikov.converter.enums.FileType;
 import lombok.*;
 
 import java.io.Serializable;
 
-@Getter
-@Setter
+@Data
 @AllArgsConstructor
 @Builder
 @NoArgsConstructor
 public class ConvertResponseMsgDTO implements Serializable {
 
-    private byte [] file;
+    private String id;
+
+    private byte[] file;
 
     private String formatTo;
 
     private String formatFrom;
+
+    private FileType type;
 }
