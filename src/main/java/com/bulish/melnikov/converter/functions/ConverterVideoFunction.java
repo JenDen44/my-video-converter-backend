@@ -1,7 +1,7 @@
 package com.bulish.melnikov.converter.functions;
 
 import com.bulish.melnikov.converter.model.ConvertRequestMsgDTO;
-import com.bulish.melnikov.converter.service.ConverterFileService;
+import com.bulish.melnikov.converter.service.ConverterRequestQueueManagerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
@@ -14,14 +14,14 @@ import java.util.function.Consumer;
 @RequiredArgsConstructor
 public class ConverterVideoFunction {
 
-    private final ConverterFileService converterFileService;
+    private final ConverterRequestQueueManagerService queueService;
 
     @Bean
     public Consumer<ConvertRequestMsgDTO> convert() {
         return convertRequest -> {
             log.info("Request to convert arrived : from " +  convertRequest.getFormatFrom()
                     + " to " + convertRequest.getFormatTo());
-            converterFileService.requestToConvert(convertRequest);
+            queueService.addRequestToQueue(convertRequest);
         };
     }
 }
